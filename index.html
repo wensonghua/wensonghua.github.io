@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>宝宝绘画批量编辑尺寸</title>
+<style>
+  :root {
+    --bg: #faf6f1;
+    --card: #ffffff;
+    --ink: #2c2416;
+    --muted: #8a7a66;
+    --accent: #e07a3a;
+    --accent2: #c45c26;
+    --line: #e8ddd0;
+    --ok: #3d8b6e;
+    --danger: #c44;
+    --shadow: 0 8px 28px rgba(44, 36, 22, 0.08);
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  header {
+    flex: 0 0 auto;
+    background: linear-gradient(135deg, #fff8f0, #ffe8d6);
+    border-bottom: 1px solid var(--line);
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: nowrap;
+    min-height: 0;
+  }
+  header .brand {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    min-width: 0;
+    flex: 1;
+  }
+  header h1 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  header .sub {
+    color: var(--muted);
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  header .status { flex: 0 0 auto; white-space: nowrap; }
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    height: auto;
+  }
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: 1fr;
+      grid-template-rows: minmax(0, 42vh) minmax(0, 1fr);
+    }
+    .sidebar {
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+    }
+  }
+  .sidebar {
+    background: var(--card);
+    border-right: 1px solid var(--line);
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: block;
+  }
+  .sidebar-scroll {
+    padding: 14px 14px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .sidebar-actions {
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--line);
+    background: #fffaf5;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    /* sit right under panels; stick to bottom only while scrolling long content */
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    box-shadow: 0 -6px 16px rgba(44, 36, 22, 0.04);
+  }
+  .main {
+    padding: 16px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .main > .grid { flex: 0 0 auto; }
+  .panel {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+  }
+  .panel h3 {
+    margin: 0 0 10px;
+    font-size: 0.92rem;
+    color: var(--accent2);
+  }
+  .panel.panel-output {
+    background: linear-gradient(160deg, #fff3e6 0%, #ffe0c2 55%, #ffd4a8 100%);
+    border: 2px solid var(--accent);
+    box-shadow: 0 0 0 3px rgba(224, 122, 58, 0.18), var(--shadow);
+  }
+  .panel.panel-output h3 {
+    color: #a84812;
+    font-size: 1rem;
+  }
+  label.field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  input[type="text"], input[type="number"], select {
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    font-size: 0.92rem;
+    background: #fff;
+    color: var(--ink);
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(224,122,58,0.15); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1; min-width: 0; }
+  .btn {
+    appearance: none;
+    border: none;
+    border-radius: 10px;
+    padding: 9px 14px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.15s;
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line);
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+  }
+  .btn.primary:hover { filter: brightness(1.05); color: #fff; }
+  .btn.ghost { background: transparent; }
+  .btn.danger { color: var(--danger); border-color: #f0c0c0; }
+  .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip-group.ratio-groups {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .ratio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .ratio-group-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .ratio-group-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  .chip {
+    padding: 5px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: #fff;
+    font-size: 0.75rem;
+    cursor: pointer;
+    user-select: none;
+  }
+  .chip.active {
+    background: #fff0e6;
+    border-color: var(--accent);
+    color: var(--accent2);
+    font-weight: 600;
+  }
+  :root {
+    --thumb-min: 200px;
+    --thumb-gap: 12px;
+  }
+  body.dragging-files {
+    cursor: copying;
+  }
+  .page-drop-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(224, 122, 58, 0.12);
+    border: 3px dashed var(--accent);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+  }
+  body.dragging-files .page-drop-overlay { display: flex; }
+  .page-drop-overlay .msg {
+    background: #fff;
+    color: var(--accent2);
+    padding: 28px 48px;
+    border-radius: 18px;
+    font-size: clamp(1.4rem, 2.5vw, 2.2rem);
+    font-weight: 800;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--line);
+  }
+  .empty-hint {
+    flex: 1 1 auto;
+    min-height: 0;
+    border: 4px dashed #d4b89a;
+    border-radius: 24px;
+    background: #fffdf9;
+    padding: clamp(28px, 5vh, 72px) clamp(20px, 4vw, 48px);
+    text-align: center;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+  }
+  .empty-hint.hidden { display: none !important; }
+  .empty-hint strong {
+    color: var(--ink);
+    display: block;
+    font-size: clamp(1.6rem, 3.5vh, 3.2rem);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+  }
+  .empty-hint span {
+    font-size: clamp(1.05rem, 1.8vw, 1.45rem);
+    line-height: 1.5;
+    max-width: 36em;
+  }
+  .empty-hint .hint-emoji {
+    font-size: clamp(2.4rem, 5vh, 5rem);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  /* True column masonry (birme-style): pack top-to-bottom per column */
+  .grid {
+    column-width: var(--thumb-min);
+    column-gap: var(--thumb-gap);
+    column-fill: balance;
+  }
+  .grid[data-thumb="small"] { --thumb-min: 140px; --thumb-gap: 8px; }
+  .grid[data-thumb="medium"] { --thumb-min: 200px; --thumb-gap: 12px; }
+  .grid[data-thumb="large"] { --thumb-min: 280px; --thumb-gap: 14px; }
+  .grid[data-thumb="xlarge"] { --thumb-min: 360px; --thumb-gap: 16px; }
+  .grid[data-thumb="xxlarge"] { --thumb-min: 480px; --thumb-gap: 18px; }
+  .grid[data-thumb="xxxlarge"] { --thumb-min: 580px; --thumb-gap: 20px; }
+  .card {
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: none;
+    position: relative;
+    cursor: pointer;
+    transition: 0.12s;
+    height: auto;
+    width: 100%;
+    display: inline-block;
+    vertical-align: top;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-column-break-inside: avoid;
+    margin: 0 0 var(--thumb-gap);
+  }
+  .card:hover { outline: 2px solid var(--accent); }
+  .card.selected { outline: 2px solid var(--accent); }
+  .card .thumb-wrap {
+    position: relative;
+    background: transparent;
+    overflow: hidden;
+    line-height: 0;
+    width: 100%;
+    height: auto;
+    /* aspect-ratio set inline from natural image size */
+  }
+  .card canvas.preview {
+    width: 100%;
+    height: auto;
+    display: block;
+    vertical-align: top;
+    cursor: grab;
+    touch-action: none;
+  }
+  .card canvas.preview.dragging { cursor: grabbing; }
+  .card .check {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.92);
+    border: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    font-size: 12px;
+  }
+  .card.selected .check { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .status { font-size: 0.85rem; color: var(--muted); }
+  .progress {
+    height: 6px;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+    display: none;
+  }
+  .progress.show { display: block; }
+  .progress > i {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent), #f0a060);
+    transition: width 0.2s;
+  }
+  .hint { font-size: 0.75rem; color: var(--muted); line-height: 1.4; }
+  .hidden { display: none !important; }
+  .card.editing {
+    outline: 2px solid var(--accent);
+    z-index: 4;
+  }
+  .card-edit-ui {
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    bottom: 6px;
+    z-index: 6;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    pointer-events: none;
+  }
+  .card-edit-ui > * { pointer-events: auto; }
+  .card-ratio-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    max-height: 64px;
+    overflow-y: auto;
+    padding: 5px 6px;
+    background: rgba(255,255,255,0.94);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+  }
+  .card-ratio-chips .chip {
+    font-size: 0.65rem;
+    padding: 2px 7px;
+  }
+  .card-ratio-chips.is-hidden {
+    display: none !important;
+  }
+  .card-edit-actions {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+  }
+  .card-edit-actions .btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.95);
+  }
+  .card canvas.preview.zooming { cursor: nwse-resize; }
+  .card canvas.preview.panning { cursor: grabbing; }
+
+  input[type="range"] { width: 100%; }
+  .size-preview {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.85rem;
+    background: #fff8f0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1>宝宝绘画批量编辑尺寸</h1>
+    <div class="sub">拖入图片 · 按比例裁剪 · 无灰边 · 批量/单图编辑</div>
+  </div>
+  <div class="status" id="globalStatus">尚未导入图片</div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-scroll">
+    <div class="panel">
+      <h3>缩略图大小</h3>
+      <div class="chip-group" id="thumbSizeChips"></div>
+      <p class="hint" style="margin:8px 0 0">瀑布流分栏铺满。默认「大」；「超大」列宽约 580px。</p>
+    </div>
+
+    <div class="panel panel-output">
+      <h3>输出尺寸</h3>
+      <div class="row" style="margin-bottom:8px">
+        <button class="btn primary" id="btnModeMp" type="button" style="flex:1">百万像素</button>
+        <button class="btn" id="btnModeOriginal" type="button" style="flex:1">原始图像像素</button>
+      </div>
+      <div id="mpControls">
+        <label class="field" style="margin-bottom:4px">百万像素
+          <input type="number" id="mpInput" min="0.4" max="8" step="0.1" value="1" />
+        </label>
+        <p class="hint" style="margin:0">支持 0.4–8 百万像素</p>
+      </div>
+      <div id="origHint" class="hint hidden" style="margin-top:8px">
+        原始图像像素：导出尺寸 = 源图裁剪框的实际像素（不放大）。
+      </div>
+      <div id="fixedHint" class="hint hidden" style="margin-top:8px">
+        固定像素：由链接参数 target_width × target_height 指定输出尺寸。
+      </div>
+      <div class="size-preview" id="sizePreview" style="margin-top:10px">输出约：—</div>
+    </div>
+
+    <div class="panel">
+      <h3>裁剪比例</h3>
+      <div class="chip-group" id="ratioChips"></div>
+      <div class="row hidden" id="customRatioRow" style="margin-top:8px">
+        <label class="field" style="flex:1;margin:0">宽
+          <input type="number" id="customRw" min="1" step="1" value="9" />
+        </label>
+        <span style="padding-top:18px">:</span>
+        <label class="field" style="flex:1;margin:0">高
+          <input type="number" id="customRh" min="1" step="1" value="16" />
+        </label>
+      </div>
+      <p class="hint" style="margin:8px 0 0">封面式裁剪：铺满目标比例，多出来的部分裁掉，绝不加灰边/白边。</p>
+    </div>
+
+    </div><!-- /.sidebar-scroll -->
+
+    <div class="sidebar-actions">
+      <div class="row">
+        <button class="btn primary" id="btnApplyAll" type="button">全部应用当前设置</button>
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnExportAll" type="button">导出全部</button>
+        <button class="btn" id="btnExportSelected" type="button">导出选中</button>
+      </div>
+      <div class="progress" id="progressBar"><i></i></div>
+      <p class="hint" id="exportHint" style="margin:0;line-height:1.55">
+        <strong style="color:var(--accent2);font-size:0.9rem">第一次导出：弹窗里只点选「桌面」，再点「选择文件夹」——千万别点「新建文件夹」（会白板）。</strong><br>
+        网页不能静默写桌面，第一次要授权一次；之后自动在桌面创建「编辑尺寸年.月.日.时.分」并写入 PNG。Chrome 弹窗里新建会出问题，所以改由程序创建。
+      </p>
+      <div class="row">
+        <button class="btn" id="btnChangeExportDir" type="button">更换导出位置</button>
+      </div>
+      <div class="row">
+        <button class="btn danger" id="btnClear" type="button">清空列表</button>
+        <button class="btn" id="btnSelectAll" type="button">全选/取消</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="empty-hint" id="emptyHint">
+      <div class="hint-emoji" aria-hidden="true">📥</div>
+      <strong>把图片拖到这里</strong>
+      <span>支持一次拖入多张，或拖入整个文件夹<br>再次拖入会<strong>追加</strong>到列表末尾，不会覆盖已有图片<br>JPG / PNG / WebP / BMP / GIF</span>
+    </div>
+    <div class="grid" id="thumbGrid" data-thumb="large"></div>
+  </main>
+</div>
+
+<div class="page-drop-overlay" id="pageDropOverlay" aria-hidden="true">
+  <div class="msg">松开鼠标，导入图片</div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  const IMAGE_EXTS = /\.(jpe?g|png|webp|bmp|gif)$/i;
+  const RATIO_PRESETS = [
+    { id: '1:1', w: 1, h: 1, label: '1:1' },
+    { id: '16:9', w: 16, h: 9, label: '16:9' },
+    { id: '9:16', w: 9, h: 16, label: '9:16' },
+    { id: '4:5', w: 4, h: 5, label: '4:5' },
+    { id: '4:3', w: 4, h: 3, label: '4:3' },
+    { id: '3:4', w: 3, h: 4, label: '3:4' },
+    { id: '3:2', w: 3, h: 2, label: '3:2' },
+    { id: '2:3', w: 2, h: 3, label: '2:3' },
+    { id: '239:100', w: 239, h: 100, label: '2.39:1' },
+    { id: '47:20', w: 47, h: 20, label: '2.35:1' },
+    { id: '37:20', w: 37, h: 20, label: '1.85:1' },
+    { id: '21:9', w: 21, h: 9, label: '21:9' },
+    { id: '32:9', w: 32, h: 9, label: '32:9' },
+    { id: '5:4', w: 5, h: 4, label: '5:4' },
+    { id: '5:7', w: 5, h: 7, label: '5:7' },
+    { id: '7:5', w: 7, h: 5, label: '7:5' },
+    { id: '11:14', w: 11, h: 14, label: '11:14' },
+    { id: '14:11', w: 14, h: 11, label: '14:11' },
+    { id: '210:297', w: 210, h: 297, label: '210:297' },
+    { id: '297:210', w: 297, h: 210, label: '297:210' },
+    { id: 'custom', w: 9, h: 16, label: '自定义' },
+  ];
+  const MP_MIN = 0.4;
+  const MP_MAX = 8;
+
+  /** @type {{id:string,file:File,url:string,img:HTMLImageElement,name:string,selected:boolean,override:null|{rw:number,rh:number,zoom:number,panX:number,panY:number}}} */
+  let items = [];
+  let globalState = {
+    ratioId: '4:5',
+    customRw: 9,
+    customRh: 16,
+    sizeMode: 'mp', // 'mp' | 'original' | 'fixed'
+    mp: 1,
+    fixedW: 1024,
+    fixedH: 1280,
+    zoom: 1,
+    panX: 0.5,
+    panY: 0.5,
+  };
+
+  let editingId = null;
+  let editPanelVisible = true; // ratio chip bar show/hide while editing
+
+  // DOM
+  const $ = (s) => document.querySelector(s);
+  const thumbGrid = $('#thumbGrid');
+  const emptyHint = $('#emptyHint');
+  let thumbSize = 'large'; // small medium large xlarge xxlarge xxxlarge
+  const THUMB_SIZES = [
+    { id: 'small', label: '小' },
+    { id: 'medium', label: '中' },
+    { id: 'large', label: '大' },
+    { id: 'xlarge', label: '很大' },
+    { id: 'xxlarge', label: '特大' },
+    { id: 'xxxlarge', label: '超大' },
+  ];
+  const THUMB_PREVIEW_PX = { small: 240, medium: 360, large: 480, xlarge: 640, xxlarge: 900, xxxlarge: 1200 };
+  const progressBar = $('#progressBar');
+  const progressInner = progressBar.querySelector('i');
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function defaultFolderName() {
+    const d = new Date();
+    return `编辑尺寸${pad2(d.getFullYear() % 100)}.${pad2(d.getMonth() + 1)}.${pad2(d.getDate())}.${pad2(d.getHours())}.${pad2(d.getMinutes())}`;
+  }
+
+  function getRatio(state) {
+    if (state.ratioId === 'custom') {
+      const w = Math.max(1, Number(state.customRw) || 1);
+      const h = Math.max(1, Number(state.customRh) || 1);
+      return { w, h };
+    }
+    const p = RATIO_PRESETS.find((r) => r.id === state.ratioId) || RATIO_PRESETS[0];
+    return { w: p.w, h: p.h };
+  }
+
+  function effectiveState(item) {
+    if (item && item.override) {
+      return {
+        ...globalState,
+        ratioId: 'custom',
+        customRw: item.override.rw,
+        customRh: item.override.rh,
+        zoom: item.override.zoom,
+        panX: item.override.panX,
+        panY: item.override.panY,
+      };
+    }
+    return { ...globalState };
+  }
+
+  /**
+   * Cover crop: crop rect in source pixels that matches aspect rw:rh.
+   * zoom >= 1 shrinks the crop window (zoom in).
+   * panX/panY in [0,1] position the crop within allowed range.
+   */
+  function computeCropRect(imgW, imgH, rw, rh, zoom, panX, panY) {
+    const targetAspect = rw / rh;
+    const imgAspect = imgW / imgH;
+    let baseW, baseH;
+    if (imgAspect > targetAspect) {
+      // image wider → fit height, crop sides
+      baseH = imgH;
+      baseW = imgH * targetAspect;
+    } else {
+      // image taller → fit width, crop top/bottom
+      baseW = imgW;
+      baseH = imgW / targetAspect;
+    }
+    const z = Math.max(1, zoom || 1);
+    let cropW = baseW / z;
+    let cropH = baseH / z;
+    // never exceed image
+    cropW = Math.min(cropW, imgW);
+    cropH = Math.min(cropH, imgH);
+    // re-assert aspect
+    if (cropW / cropH > targetAspect) cropW = cropH * targetAspect;
+    else cropH = cropW / targetAspect;
+
+    const maxX = Math.max(0, imgW - cropW);
+    const maxY = Math.max(0, imgH - cropH);
+    const px = Math.min(1, Math.max(0, panX == null ? 0.5 : panX));
+    const py = Math.min(1, Math.max(0, panY == null ? 0.5 : panY));
+    const x = maxX * px;
+    const y = maxY * py;
+    return {
+      x: Math.round(x),
+      y: Math.round(y),
+      w: Math.max(1, Math.round(cropW)),
+      h: Math.max(1, Math.round(cropH)),
+    };
+  }
+
+  /**
+   * Megapixels + aspect → integer WxH closest to target MP.
+   * w*h ≈ mp*1e6, w/h = rw/rh
+   */
+  function mpToSize(mp, rw, rh) {
+    const pixels = Math.max(0.01, mp) * 1e6;
+    const aspect = rw / rh;
+    let h = Math.sqrt(pixels / aspect);
+    let w = h * aspect;
+    w = Math.max(1, Math.round(w));
+    h = Math.max(1, Math.round(h));
+    return { w, h };
+  }
+
+  function clampMp(v) {
+    let n = Number(v);
+    if (!Number.isFinite(n)) n = 1;
+    n = Math.round(n * 100) / 100;
+    return Math.min(MP_MAX, Math.max(MP_MIN, n));
+  }
+
+  function currentMp() {
+    return clampMp(globalState.mp);
+  }
+
+  function syncMpModeUI() {
+    const mode = globalState.sizeMode;
+    const isMp = mode === 'mp';
+    const isOrig = mode === 'original';
+    const isFixed = mode === 'fixed';
+    const btnMp = $('#btnModeMp');
+    const btnOrig = $('#btnModeOriginal');
+    if (btnMp) btnMp.classList.toggle('primary', isMp);
+    if (btnOrig) btnOrig.classList.toggle('primary', isOrig);
+    $('#mpControls').classList.toggle('hidden', !isMp);
+    $('#origHint').classList.toggle('hidden', !isOrig);
+    const fixedHint = $('#fixedHint');
+    if (fixedHint) fixedHint.classList.toggle('hidden', !isFixed);
+    const inp = $('#mpInput');
+    if (inp) inp.value = String(currentMp());
+  }
+
+  function outputSizeFor(item, state) {
+    const { w: rw, h: rh } = getRatio(state);
+    const crop = computeCropRect(item.img.naturalWidth, item.img.naturalHeight, rw, rh, state.zoom, state.panX, state.panY);
+    if (state.sizeMode === 'original') {
+      return { w: crop.w, h: crop.h, crop };
+    }
+    if (state.sizeMode === 'fixed') {
+      return {
+        w: Math.max(1, Math.round(Number(state.fixedW) || 1)),
+        h: Math.max(1, Math.round(Number(state.fixedH) || 1)),
+        crop,
+      };
+    }
+    const mp = clampMp(state.mp);
+    const sz = mpToSize(mp, rw, rh);
+    return { w: sz.w, h: sz.h, crop };
+  }
+
+  function updateSizePreview() {
+    const { w: rw, h: rh } = getRatio(globalState);
+    let text = `比例 ${rw}:${rh} · `;
+    if (globalState.sizeMode === 'mp') {
+      const mp = currentMp();
+      const sz = mpToSize(mp, rw, rh);
+      text += `约 ${sz.w}×${sz.h}（${mp} MP）`;
+    } else if (globalState.sizeMode === 'fixed') {
+      text += `固定 ${globalState.fixedW}×${globalState.fixedH}`;
+    } else {
+      text += '原始图像像素（裁剪框尺寸）';
+    }
+    $('#sizePreview').textContent = '输出约：' + text;
+  }
+
+  function gcdInt(a, b) {
+    a = Math.abs(Math.round(a));
+    b = Math.abs(Math.round(b));
+    while (b) { const t = b; b = a % b; a = t; }
+    return a || 1;
+  }
+
+  function setRatioFromWH(w, h) {
+    w = Math.max(1, Math.round(Number(w) || 1));
+    h = Math.max(1, Math.round(Number(h) || 1));
+    const g = gcdInt(w, h);
+    const rw = w / g;
+    const rh = h / g;
+    const match = RATIO_PRESETS.find((p) => p.id !== 'custom' && p.w === rw && p.h === rh);
+    if (match) {
+      globalState.ratioId = match.id;
+      $('#customRatioRow').classList.add('hidden');
+    } else {
+      globalState.ratioId = 'custom';
+      globalState.customRw = rw;
+      globalState.customRh = rh;
+      const elW = $('#customRw');
+      const elH = $('#customRh');
+      if (elW) elW.value = String(rw);
+      if (elH) elH.value = String(rh);
+      $('#customRatioRow').classList.remove('hidden');
+    }
+  }
+
+  function parseRatioParam(str) {
+    if (!str) return null;
+    const m = String(str).trim().match(/^(\d+(?:\.\d+)?)\s*[:xX\/]\s*(\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    let a = Number(m[1]);
+    let b = Number(m[2]);
+    if (!(a > 0 && b > 0)) return null;
+    // scale decimals to ints
+    for (let i = 0; i < 4 && (a % 1 || b % 1); i++) { a *= 10; b *= 10; }
+    a = Math.round(a); b = Math.round(b);
+    const g = gcdInt(a, b);
+    return { w: a / g, h: b / g };
+  }
+
+  /** Birme-like URL: ?target_width=720&target_height=1280&ratio=9:16 */
+  function applyUrlQueryDefaults() {
+    let q;
+    try { q = new URLSearchParams(location.search || ''); } catch (_) { return; }
+    const tw = parseInt(q.get('target_width') || q.get('width') || '', 10);
+    const th = parseInt(q.get('target_height') || q.get('height') || '', 10);
+    const ratioStr = q.get('ratio') || '';
+    const ratio = parseRatioParam(ratioStr);
+
+    if (Number.isFinite(tw) && tw > 0 && Number.isFinite(th) && th > 0) {
+      globalState.sizeMode = 'fixed';
+      globalState.fixedW = tw;
+      globalState.fixedH = th;
+      if (!ratio) setRatioFromWH(tw, th);
+    }
+    if (ratio) {
+      const match = RATIO_PRESETS.find((p) => p.id !== 'custom' && p.w === ratio.w && p.h === ratio.h);
+      if (match) {
+        globalState.ratioId = match.id;
+        $('#customRatioRow').classList.add('hidden');
+      } else {
+        globalState.ratioId = 'custom';
+        globalState.customRw = ratio.w;
+        globalState.customRh = ratio.h;
+        const elW = $('#customRw');
+        const elH = $('#customRh');
+        if (elW) elW.value = String(ratio.w);
+        if (elH) elH.value = String(ratio.h);
+        $('#customRatioRow').classList.remove('hidden');
+      }
+    }
+  }
+
+  function renderRatioChipGroups(container, activeId, onPick) {
+    container.innerHTML = '';
+    container.classList.remove('ratio-groups');
+    container.classList.add('chip-group');
+    RATIO_PRESETS.forEach((p) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'chip' + (activeId === p.id ? ' active' : '');
+      el.dataset.id = p.id;
+      el.dataset.w = String(p.w);
+      el.dataset.h = String(p.h);
+      el.title = p.id === 'custom' ? '自定义比例' : (p.w + ':' + p.h);
+      el.textContent = p.label;
+      el.addEventListener('click', () => onPick(p));
+      container.appendChild(el);
+    });
+  }
+
+  function renderChips() {
+    const ratioBox = $('#ratioChips');
+    renderRatioChipGroups(ratioBox, globalState.ratioId, (p) => {
+      globalState.ratioId = p.id;
+      $('#customRatioRow').classList.toggle('hidden', p.id !== 'custom');
+      renderChips();
+      updateSizePreview();
+      refreshAllPreviews();
+    });
+
+    syncMpModeUI();
+  }
+
+  function uid() {
+    return 'img_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  }
+
+  function isImageFile(file) {
+    if (!file) return false;
+    if (file.type && file.type.startsWith('image/')) return true;
+    return IMAGE_EXTS.test(file.name || '');
+  }
+
+  function loadImageFromFile(file) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => resolve({ img, url });
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('无法读取 ' + file.name));
+      };
+      img.src = url;
+    });
+  }
+
+  function fileIdentity(file) {
+    return [file.name || '', file.size || 0, file.lastModified || 0].join('|');
+  }
+
+  async function addFiles(fileList) {
+    // Always APPEND to the end — never replace/clear existing items
+    const files = Array.from(fileList || []).filter(isImageFile);
+    if (!files.length) {
+      setStatus('没有找到可识别的图片');
+      return;
+    }
+    const existing = new Set(items.map((it) => fileIdentity(it.file)));
+    setStatus(`正在追加加载 ${files.length} 张…`);
+    let ok = 0;
+    let skipped = 0;
+    for (const file of files) {
+      const key = fileIdentity(file);
+      if (existing.has(key)) {
+        skipped++;
+        continue;
+      }
+      try {
+        const { img, url } = await loadImageFromFile(file);
+        items.push({
+          id: uid(),
+          file,
+          url,
+          img,
+          name: file.name,
+          selected: true,
+          override: null,
+        });
+        existing.add(key);
+        ok++;
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    renderGrid();
+    const skipMsg = skipped ? `，跳过重复 ${skipped} 张` : '';
+    setStatus(`追加导入 ${ok} 张${skipMsg}（列表共 ${items.length} 张，保持上传顺序）`);
+    $('#globalStatus').textContent = `共 ${items.length} 张图片`;
+  }
+
+  function setStatus(t) {
+    const el = $('#globalStatus');
+    if (el) el.textContent = t;
+  }
+
+  function renderThumbSizeChips() {
+    const box = $('#thumbSizeChips');
+    if (!box) return;
+    box.innerHTML = '';
+    THUMB_SIZES.forEach((s) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'chip' + (thumbSize === s.id ? ' active' : '');
+      el.textContent = s.label;
+      el.addEventListener('click', () => {
+        thumbSize = s.id;
+        thumbGrid.dataset.thumb = s.id;
+        renderThumbSizeChips();
+        refreshAllPreviews();
+      });
+      box.appendChild(el);
+    });
+  }
+
+  let hatchPatternCache = null;
+  function getHatchPattern(ctx) {
+    if (hatchPatternCache) return hatchPatternCache;
+    const p = document.createElement('canvas');
+    p.width = 10;
+    p.height = 10;
+    const pc = p.getContext('2d');
+    pc.fillStyle = 'rgba(255,255,255,0.42)';
+    pc.fillRect(0, 0, 10, 10);
+    pc.strokeStyle = 'rgba(90, 90, 90, 0.55)';
+    pc.lineWidth = 2.2;
+    pc.beginPath();
+    pc.moveTo(-2, 8);
+    pc.lineTo(8, -2);
+    pc.moveTo(2, 12);
+    pc.lineTo(12, 2);
+    pc.stroke();
+    hatchPatternCache = ctx.createPattern(p, 'repeat');
+    return hatchPatternCache;
+  }
+
+  function ensureItemOverrideShell(item) {
+    if (item.override) return item.override;
+    const state = effectiveState(item);
+    const { w: rw, h: rh } = getRatio(state);
+    item.override = {
+      rw, rh,
+      zoom: state.zoom,
+      panX: state.panX,
+      panY: state.panY,
+    };
+    return item.override;
+  }
+
+  function hitCropHandle(mx, my, cx, cy, cw, ch) {
+    const hs = 18;
+    const pts = [[cx, cy], [cx + cw, cy], [cx, cy + ch], [cx + cw, cy + ch]];
+    for (let i = 0; i < 4; i++) {
+      if (Math.abs(mx - pts[i][0]) <= hs && Math.abs(my - pts[i][1]) <= hs) return i;
+    }
+    return -1;
+  }
+
+  function pointInCrop(mx, my, cx, cy, cw, ch) {
+    return mx >= cx && mx <= cx + cw && my >= cy && my <= cy + ch;
+  }
+
+  function drawCornerHandles(ctx, cx, cy, cw, ch) {
+    const hs = Math.max(9, Math.round(11 * (ctx.canvas.width / 500)));
+    [[cx, cy], [cx + cw, cy], [cx, cy + ch], [cx + cw, cy + ch]].forEach(([x, y]) => {
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#e07a3a';
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(x - hs / 2, y - hs / 2, hs, hs);
+      ctx.strokeRect(x - hs / 2, y - hs / 2, hs, hs);
+    });
+  }
+
+  function canvasLocalXY(canvas, e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / Math.max(1, rect.width);
+    const sy = canvas.height / Math.max(1, rect.height);
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  }
+
+  function setItemZoom(item, zoom) {
+    const ov = ensureItemOverrideShell(item);
+    ov.zoom = Math.min(5, Math.max(1, Number(zoom) || 1));
+    if (!item._lockRatio) {
+      const gr = getRatio(globalState);
+      ov.rw = gr.w;
+      ov.rh = gr.h;
+    }
+  }
+
+  /** Corner drag → zoom while keeping aspect (cover crop model). */
+  function zoomFromCornerPointer(item, canvas, loc) {
+    const ov = ensureItemOverrideShell(item);
+    const imgW = item.img.naturalWidth;
+    const imgH = item.img.naturalHeight;
+    const scale = canvas.width / imgW;
+    const mx = loc.x / scale;
+    const my = loc.y / scale;
+    const crop = computeCropRect(imgW, imgH, ov.rw, ov.rh, ov.zoom || 1, ov.panX, ov.panY);
+    const midX = crop.x + crop.w / 2;
+    const midY = crop.y + crop.h / 2;
+    const halfNow = Math.hypot(mx - midX, my - midY);
+    if (halfNow < 1) return;
+    const base = computeCropRect(imgW, imgH, ov.rw, ov.rh, 1, 0.5, 0.5);
+    const half1 = 0.5 * Math.hypot(base.w, base.h);
+    setItemZoom(item, half1 / halfNow);
+  }
+
+  function syncEditPanelVisibility(card) {
+    if (!card) return;
+    const chips = card.querySelector('.card-ratio-chips');
+    const btn = card.querySelector('.btn-toggle-ratios');
+    if (chips) chips.classList.toggle('is-hidden', !editPanelVisible);
+    if (btn) btn.textContent = editPanelVisible ? '收起比例' : '比例';
+  }
+
+  function toggleEditPanel(card) {
+    editPanelVisible = !editPanelVisible;
+    syncEditPanelVisibility(card || (items.find((i) => i.id === editingId) || {})._card);
+    setStatus(editPanelVisible ? '比例栏已显示' : '比例栏已隐藏 · 仍可拖四角/框内平移');
+  }
+
+  function activateInlineEdit(id) {
+    editingId = id;
+    editPanelVisible = true; // first click: show ratio bar + crop UI
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    ensureItemOverrideShell(item);
+    if (!item._lockRatio) {
+      const gr = getRatio(globalState);
+      item.override.rw = gr.w;
+      item.override.rh = gr.h;
+    }
+    renderGrid();
+    setStatus('编辑中：' + item.name + ' · 点选比例 · 拖四角 · 再点空白处显隐比例栏');
+  }
+
+  function deactivateInlineEdit() {
+    if (!editingId) return;
+    editingId = null;
+    editPanelVisible = true;
+    renderGrid();
+  }
+
+  function bindInlineEdit(canvas, item, card) {
+    let drag = null;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (editingId !== item.id) {
+        activateInlineEdit(item.id);
+        return;
+      }
+      const ov = ensureItemOverrideShell(item);
+      const loc = canvasLocalXY(canvas, e);
+      const cd = canvas._cropDisp;
+      canvas.setPointerCapture(e.pointerId);
+      if (cd) {
+        const handle = hitCropHandle(loc.x, loc.y, cd.cx, cd.cy, cd.cw, cd.ch);
+        if (handle >= 0) {
+          drag = { mode: 'corner', id: e.pointerId, moved: false };
+          canvas.classList.add('zooming');
+          zoomFromCornerPointer(item, canvas, loc);
+          redrawCardRatioActive(card, item);
+          drawThumbPreview(canvas, item);
+          return;
+        }
+        if (!pointInCrop(loc.x, loc.y, cd.cx, cd.cy, cd.cw, cd.ch)) {
+          // outside crop / blank area: tap toggles ratio panel (no pan)
+          drag = { mode: 'tap-toggle', id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
+          return;
+        }
+      }
+      drag = {
+        mode: 'pan',
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        panX: ov.panX,
+        panY: ov.panY,
+        moved: false,
+      };
+      canvas.classList.add('panning');
+      canvas.classList.add('dragging');
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      if (editingId !== item.id) return;
+      if (drag.mode === 'tap-toggle') {
+        if (Math.abs(e.clientX - drag.x) + Math.abs(e.clientY - drag.y) > 4) drag.moved = true;
+        return;
+      }
+      const ov = ensureItemOverrideShell(item);
+      if (drag.mode === 'corner') {
+        drag.moved = true;
+        zoomFromCornerPointer(item, canvas, canvasLocalXY(canvas, e));
+        drawThumbPreview(canvas, item);
+        return;
+      }
+      const dx = e.clientX - drag.x;
+      const dy = e.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+      const crop = computeCropRect(item.img.naturalWidth, item.img.naturalHeight, ov.rw, ov.rh, ov.zoom, 0.5, 0.5);
+      const maxX = Math.max(1, item.img.naturalWidth - crop.w);
+      const maxY = Math.max(1, item.img.naturalHeight - crop.h);
+      const scale = canvas.clientWidth / item.img.naturalWidth;
+      ov.panX = Math.min(1, Math.max(0, drag.panX + dx / scale / maxX));
+      ov.panY = Math.min(1, Math.max(0, drag.panY + dy / scale / maxY));
+      drawThumbPreview(canvas, item);
+    });
+
+    const end = (e) => {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      const mode = drag.mode;
+      const moved = drag.moved;
+      drag = null;
+      canvas.classList.remove('dragging');
+      canvas.classList.remove('zooming');
+      canvas.classList.remove('panning');
+      // Click cycle: tap outside crop toggles ratio bar show/hide
+      if (mode === 'tap-toggle' && !moved) {
+        toggleEditPanel(card);
+      }
+    };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+
+    canvas.addEventListener('wheel', (e) => {
+      if (editingId !== item.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const ov = ensureItemOverrideShell(item);
+      setItemZoom(item, (ov.zoom || 1) + (e.deltaY < 0 ? 0.08 : -0.08));
+      drawThumbPreview(canvas, item);
+    }, { passive: false });
+  }
+
+  function activeRatioIdForItem(item) {
+    const ov = ensureItemOverrideShell(item);
+    const match = RATIO_PRESETS.find((p) => p.id !== 'custom' && p.w === ov.rw && p.h === ov.rh);
+    if (match) return match.id;
+    return 'custom';
+  }
+
+  function redrawCardRatioActive(card, item) {
+    const box = card.querySelector('.card-ratio-chips');
+    if (!box) return;
+    const aid = activeRatioIdForItem(item);
+    box.querySelectorAll('.chip').forEach((c) => {
+      c.classList.toggle('active', c.dataset.id === aid);
+    });
+  }
+
+  function attachCardEditUI(card, canvas, item) {
+    const ui = document.createElement('div');
+    ui.className = 'card-edit-ui';
+    ui.addEventListener('pointerdown', (e) => e.stopPropagation());
+    ui.addEventListener('click', (e) => e.stopPropagation());
+
+    const ratioBox = document.createElement('div');
+    ratioBox.className = 'card-ratio-chips';
+    const aid = activeRatioIdForItem(item);
+    RATIO_PRESETS.forEach((p) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'chip' + (aid === p.id ? ' active' : '');
+      el.dataset.id = p.id;
+      el.textContent = p.label;
+      el.title = p.id === 'custom' ? '自定义（用侧栏宽高）' : (p.w + ':' + p.h);
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const ov = ensureItemOverrideShell(item);
+        item._lockRatio = true;
+        if (p.id === 'custom') {
+          ov.rw = Math.max(1, Number($('#customRw').value) || globalState.customRw || 1);
+          ov.rh = Math.max(1, Number($('#customRh').value) || globalState.customRh || 1);
+        } else {
+          ov.rw = p.w;
+          ov.rh = p.h;
+        }
+        redrawCardRatioActive(card, item);
+        drawThumbPreview(canvas, item);
+        setStatus('本图比例 → ' + p.label);
+      });
+      ratioBox.appendChild(el);
+    });
+
+    const actions = document.createElement('div');
+    actions.className = 'card-edit-actions';
+    const btnToggle = document.createElement('button');
+    btnToggle.type = 'button';
+    btnToggle.className = 'btn btn-toggle-ratios';
+    btnToggle.textContent = editPanelVisible ? '收起比例' : '比例';
+    btnToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleEditPanel(card);
+    });
+    const btnCenter = document.createElement('button');
+    btnCenter.type = 'button';
+    btnCenter.className = 'btn';
+    btnCenter.textContent = '居中';
+    btnCenter.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const ov = ensureItemOverrideShell(item);
+      ov.panX = 0.5;
+      ov.panY = 0.5;
+      drawThumbPreview(canvas, item);
+    });
+    const btnDone = document.createElement('button');
+    btnDone.type = 'button';
+    btnDone.className = 'btn primary';
+    btnDone.textContent = '完成';
+    btnDone.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deactivateInlineEdit();
+    });
+    actions.appendChild(btnToggle);
+    actions.appendChild(btnCenter);
+    actions.appendChild(btnDone);
+
+    ui.appendChild(ratioBox);
+    ui.appendChild(actions);
+    card.appendChild(ui);
+    syncEditPanelVisibility(card);
+  }
+
+  function renderGrid() {
+    thumbGrid.innerHTML = '';
+    emptyHint.classList.toggle('hidden', items.length > 0);
+    thumbGrid.dataset.thumb = thumbSize;
+    items.forEach((item) => {
+      const isEditing = editingId === item.id;
+      const card = document.createElement('div');
+      card.className = 'card' + (item.selected ? ' selected' : '') + (isEditing ? ' editing' : '');
+      card.dataset.id = item.id;
+
+      const check = document.createElement('div');
+      check.className = 'check';
+      check.textContent = item.selected ? '✓' : '';
+      check.addEventListener('click', (e) => {
+        e.stopPropagation();
+        item.selected = !item.selected;
+        renderGrid();
+      });
+
+      const wrap = document.createElement('div');
+      wrap.className = 'thumb-wrap';
+      const nw = item.img.naturalWidth || 1;
+      const nh = item.img.naturalHeight || 1;
+      wrap.style.aspectRatio = nw + ' / ' + nh;
+      const canvas = document.createElement('canvas');
+      canvas.className = 'preview';
+      canvas.title = item.name;
+      wrap.appendChild(canvas);
+
+      card.appendChild(check);
+      card.appendChild(wrap);
+      if (isEditing) attachCardEditUI(card, canvas, item);
+      thumbGrid.appendChild(card);
+
+      drawThumbPreview(canvas, item);
+      bindInlineEdit(canvas, item, card);
+      item._canvas = canvas;
+      item._card = card;
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /**
+   * Birme-style thumb: full original + hatch outside crop; corner handles when editing inline.
+   */
+  function drawThumbPreview(canvas, item) {
+    const state = effectiveState(item);
+    const { w: rw, h: rh } = getRatio(state);
+    const imgW = item.img.naturalWidth;
+    const imgH = item.img.naturalHeight;
+    const crop = computeCropRect(imgW, imgH, rw, rh, state.zoom, state.panX, state.panY);
+
+    const maxSide = THUMB_PREVIEW_PX[thumbSize] || 480;
+    const scale = Math.min(maxSide / imgW, maxSide / imgH, 1);
+    const cw = Math.max(1, Math.round(imgW * scale));
+    const ch = Math.max(1, Math.round(imgH * scale));
+    if (canvas.width !== cw) canvas.width = cw;
+    if (canvas.height !== ch) canvas.height = ch;
+
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.clearRect(0, 0, cw, ch);
+    ctx.drawImage(item.img, 0, 0, cw, ch);
+
+    const cx = crop.x * scale;
+    const cy = crop.y * scale;
+    const crw = crop.w * scale;
+    const crh = crop.h * scale;
+    canvas._cropDisp = { cx, cy, cw: crw, ch: crh };
+
+    const hatch = getHatchPattern(ctx);
+    [
+      [0, 0, cw, cy],
+      [0, cy + crh, cw, ch - (cy + crh)],
+      [0, cy, cx, crh],
+      [cx + crw, cy, cw - (cx + crw), crh],
+    ].forEach(([x, y, w, h]) => {
+      if (w <= 0 || h <= 0) return;
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = hatch;
+      ctx.fillRect(x, y, w, h);
+    });
+
+    ctx.strokeStyle = 'rgba(224, 122, 58, 0.95)';
+    ctx.lineWidth = Math.max(2, Math.round(2 * (cw / 400)));
+    ctx.strokeRect(cx + 0.5, cy + 0.5, Math.max(1, crw - 1), Math.max(1, crh - 1));
+    ctx.strokeStyle = 'rgba(255,255,255,0.65)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx + 2, cy + 2, Math.max(1, crw - 4), Math.max(1, crh - 4));
+
+    if (editingId === item.id) {
+      drawCornerHandles(ctx, cx, cy, crw, crh);
+    }
+  }
+
+  function refreshAllPreviews() {
+    // redraw in place when possible to keep pan bindings; full rebuild is safer for size changes
+    renderGrid();
+  }
+
+  // Whole-page drag & drop (no file/folder picker UI)
+  // ROOT CAUSE FIX: dataTransfer is only valid synchronously during drop.
+  // Awaiting walkEntry before reading dt.files clears the FileList on Chrome
+  // (especially file://), which produced「没有找到可识别的图片」.
+  let dragDepth = 0;
+
+  function isFileDrag(e) {
+    const dt = e.dataTransfer;
+    if (!dt || !dt.types) return false;
+    const types = dt.types;
+    for (let i = 0; i < types.length; i++) {
+      const t = types[i];
+      if (t === 'Files' || t === 'application/x-moz-file') return true;
+    }
+    return false;
+  }
+
+  function clearDragUI() {
+    dragDepth = 0;
+    document.body.classList.remove('dragging-files');
+  }
+
+  function walkEntry(entry, out) {
+    return new Promise((resolve) => {
+      if (!entry) { resolve(); return; }
+      if (entry.isFile) {
+        entry.file((f) => { if (f) out.push(f); resolve(); }, () => resolve());
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        const readBatch = () => {
+          reader.readEntries(async (ents) => {
+            if (!ents || !ents.length) { resolve(); return; }
+            for (const ent of ents) await walkEntry(ent, out);
+            readBatch();
+          }, () => resolve());
+        };
+        readBatch();
+      } else resolve();
+    });
+  }
+
+  async function collectDroppedFiles(dt) {
+    // MUST snapshot FileList / entries BEFORE any await
+    const snapshotFiles = dt.files ? Array.from(dt.files) : [];
+    const entries = [];
+    if (dt.items && dt.items.length) {
+      for (let i = 0; i < dt.items.length; i++) {
+        const item = dt.items[i];
+        if (!item || item.kind !== 'file') continue;
+        let entry = null;
+        try {
+          if (item.webkitGetAsEntry) entry = item.webkitGetAsEntry();
+        } catch (_) {}
+        if (entry) entries.push(entry);
+      }
+    }
+
+    const collected = [];
+    const seen = new Set();
+    const push = (f) => {
+      if (!f || !f.name) return;
+      const key = [f.name, f.size || 0, f.lastModified || 0].join('|');
+      if (seen.has(key)) return;
+      seen.add(key);
+      collected.push(f);
+    };
+
+    // Prefer immediate FileList (most reliable on file:// for plain files)
+    snapshotFiles.forEach(push);
+
+    // Walk entries for directories / anything FileList missed
+    for (const entry of entries) {
+      const bucket = [];
+      await walkEntry(entry, bucket);
+      bucket.forEach(push);
+    }
+
+    return collected;
+  }
+
+  // Capture-phase preventDefault so drop is allowed on any child (empty-hint, sidebar, etc.)
+  document.addEventListener('dragenter', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragDepth++;
+    document.body.classList.add('dragging-files');
+  }, true);
+
+  document.addEventListener('dragover', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = 'copy'; } catch (_) {}
+  }, true);
+
+  document.addEventListener('dragleave', (e) => {
+    if (!isFileDrag(e)) return;
+    // Only count leave when pointer leaves the window/document
+    dragDepth = Math.max(0, dragDepth - 1);
+    if (dragDepth === 0) clearDragUI();
+  }, true);
+
+  document.addEventListener('drop', (e) => {
+    if (!isFileDrag(e) && !(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length)) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    clearDragUI();
+    const dt = e.dataTransfer;
+    if (!dt) return;
+    // Kick off async collect AFTER synchronous snapshot inside collectDroppedFiles
+    collectDroppedFiles(dt).then((files) => addFiles(files)).catch((err) => {
+      console.warn(err);
+      setStatus('导入失败，请重试');
+    });
+  }, true);
+
+  // Extra safety: never navigate away when dropping files on window
+  window.addEventListener('dragover', (e) => { e.preventDefault(); }, true);
+  window.addEventListener('drop', (e) => { e.preventDefault(); }, true);
+
+  // Global controls
+  $('#customRw').addEventListener('input', () => {
+    globalState.customRw = Number($('#customRw').value) || 1;
+    updateSizePreview();
+    refreshAllPreviews();
+  });
+  $('#customRh').addEventListener('input', () => {
+    globalState.customRh = Number($('#customRh').value) || 1;
+    updateSizePreview();
+    refreshAllPreviews();
+  });
+  function applyMpFromInput() {
+    globalState.sizeMode = 'mp';
+    globalState.mp = clampMp($('#mpInput').value);
+    syncMpModeUI();
+    renderChips();
+    updateSizePreview();
+    refreshAllPreviews();
+  }
+  $('#mpInput').addEventListener('input', () => {
+    // live preview while typing; clamp on change/blur
+    const raw = Number($('#mpInput').value);
+    if (Number.isFinite(raw)) {
+      globalState.sizeMode = 'mp';
+      globalState.mp = clampMp(raw);
+      updateSizePreview();
+    }
+  });
+  $('#mpInput').addEventListener('change', applyMpFromInput);
+  $('#mpInput').addEventListener('blur', applyMpFromInput);
+
+  $('#btnModeMp').addEventListener('click', () => {
+    globalState.sizeMode = 'mp';
+    globalState.mp = currentMp();
+    syncMpModeUI();
+    renderChips();
+    updateSizePreview();
+    refreshAllPreviews();
+  });
+  $('#btnModeOriginal').addEventListener('click', () => {
+    globalState.sizeMode = 'original';
+    syncMpModeUI();
+    renderChips();
+    updateSizePreview();
+    refreshAllPreviews();
+  });
+
+  $('#btnApplyAll').addEventListener('click', () => {
+    items.forEach((it) => { it.override = null; });
+    refreshAllPreviews();
+    setStatus('已将全局设置应用到全部图片（清除单图覆盖）');
+  });
+
+  $('#btnClear').addEventListener('click', () => {
+    items.forEach((it) => URL.revokeObjectURL(it.url));
+    items = [];
+    renderGrid();
+    setStatus('列表已清空');
+    $('#globalStatus').textContent = '尚未导入图片';
+  });
+
+  $('#btnSelectAll').addEventListener('click', () => {
+    const all = items.every((i) => i.selected);
+    items.forEach((i) => { i.selected = !all; });
+    renderGrid();
+  });
+
+  // Export
+  function stemFromName(original) {
+    const base = String(original || 'image').replace(/\.[^.]+$/, '');
+    return base || 'image';
+  }
+
+  /** Same basename as source + .png; on collision append _1, _2… */
+  function nextUniquePngName(stem, used) {
+    let name = stem + '.png';
+    let n = 1;
+    while (used.has(name.toLowerCase())) {
+      name = stem + '_' + n + '.png';
+      n++;
+    }
+    used.add(name.toLowerCase());
+    return name;
+  }
+
+  async function fileExistsInDir(dirHandle, name) {
+    if (!dirHandle) return false;
+    try {
+      await dirHandle.getFileHandle(name);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  async function allocateExportName(stem, used, dirHandle) {
+    let name = stem + '.png';
+    let n = 1;
+    while (used.has(name.toLowerCase()) || await fileExistsInDir(dirHandle, name)) {
+      name = stem + '_' + n + '.png';
+      n++;
+    }
+    used.add(name.toLowerCase());
+    return name;
+  }
+
+  function renderToCanvas(item, state) {
+    const out = outputSizeFor(item, state);
+    const canvas = document.createElement('canvas');
+    canvas.width = out.w;
+    canvas.height = out.h;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    // No padding — cover fill only
+    ctx.drawImage(
+      item.img,
+      out.crop.x, out.crop.y, out.crop.w, out.crop.h,
+      0, 0, out.w, out.h
+    );
+    return canvas;
+  }
+
+  function canvasToBlob(canvas, mime) {
+    return new Promise((resolve) => {
+      canvas.toBlob((b) => resolve(b), mime || 'image/png');
+    });
+  }
+
+  const IDB_NAME = 'baby-paint-batch-export';
+  const IDB_STORE = 'handles';
+  const IDB_KEY_DESKTOP = 'desktopDir';
+
+  function idbOpen() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(IDB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function idbGetDesktopHandle() {
+    try {
+      const db = await idbOpen();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readonly');
+        const req = tx.objectStore(IDB_STORE).get(IDB_KEY_DESKTOP);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function idbSaveDesktopHandle(handle) {
+    try {
+      const db = await idbOpen();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(handle, IDB_KEY_DESKTOP);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {
+      console.warn('save desktop handle failed', e);
+    }
+  }
+
+  async function ensureDirPermission(handle) {
+    if (!handle || !handle.queryPermission) return false;
+    try {
+      let perm = await handle.queryPermission({ mode: 'readwrite' });
+      if (perm === 'granted') return true;
+      if (handle.requestPermission) {
+        perm = await handle.requestPermission({ mode: 'readwrite' });
+        return perm === 'granted';
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function alertExport(msg) {
+    try { window.alert(msg); } catch (_) {}
+    setStatus(msg);
+  }
+
+  async function idbClearDesktopHandle() {
+    try {
+      const db = await idbOpen();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(IDB_KEY_DESKTOP);
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  /**
+   * First time: pick Desktop only (never use picker's New Folder).
+   * Later: reuse IDB handle + requestPermission.
+   */
+  async function getDesktopRoot(forcePick) {
+    if (!window.showDirectoryPicker) return null;
+    if (!forcePick) {
+      const saved = await idbGetDesktopHandle();
+      if (saved && await ensureDirPermission(saved)) return saved;
+    }
+    setStatus('请点选「桌面」，再点「选择文件夹」（不要点新建文件夹）');
+    try {
+      window.alert('请在接下来的窗口中：\n\n1. 只点选「桌面 / Desktop」\n2. 再点「选择文件夹」\n\n千万不要点「新建文件夹」（Chrome 会白板）。\n时间戳文件夹由程序自动创建。');
+    } catch (_) {}
+    const opts = { mode: 'readwrite', id: 'baby-paint-export-desktop' };
+    try { opts.startIn = 'desktop'; } catch (_) {}
+    const handle = await window.showDirectoryPicker(opts);
+    await idbSaveDesktopHandle(handle);
+    return handle;
+  }
+
+  async function writePngsToDir(dirHandle, list, used, mime) {
+    const written = [];
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      const canvas = renderToCanvas(item, effectiveState(item));
+      const blob = await canvasToBlob(canvas, mime);
+      if (!blob) throw new Error('无法生成 PNG：' + item.name);
+      const name = await allocateExportName(stemFromName(item.name), used, dirHandle);
+      const fh = await dirHandle.getFileHandle(name, { create: true });
+      const writable = await fh.createWritable();
+      await writable.write(blob);
+      await writable.close();
+      const file = await (await dirHandle.getFileHandle(name)).getFile();
+      if (!file || file.size < 1) throw new Error('写入后文件为空：' + name);
+      written.push(name);
+      progressInner.style.width = ((i + 1) / list.length * 100) + '%';
+      setStatus('导出中 ' + (i + 1) + '/' + list.length + ' → ' + name);
+    }
+    return written;
+  }
+
+  async function exportSequentialDownloads(list) {
+    const used = new Set();
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      const canvas = renderToCanvas(item, effectiveState(item));
+      const blob = await canvasToBlob(canvas, 'image/png');
+      if (!blob) throw new Error('无法生成 PNG：' + item.name);
+      downloadBlob(blob, nextUniquePngName(stemFromName(item.name), used));
+      progressInner.style.width = ((i + 1) / list.length * 100) + '%';
+      setStatus('逐张下载 ' + (i + 1) + '/' + list.length);
+      await sleep(250);
+    }
+  }
+
+  async function exportItems(list) {
+    if (!list.length) {
+      alertExport('没有可导出的图片');
+      return;
+    }
+    const used = new Set();
+    progressBar.classList.add('show');
+    progressInner.style.width = '0%';
+
+    if (!window.showDirectoryPicker) {
+      try {
+        setStatus('浏览器不支持选文件夹，改为逐张下载 PNG…');
+        await exportSequentialDownloads(list);
+        progressBar.classList.remove('show');
+        alertExport('已逐张下载 ' + list.length + ' 张 PNG');
+      } catch (err) {
+        progressBar.classList.remove('show');
+        alertExport('导出失败：' + ((err && err.message) || err));
+      }
+      return;
+    }
+
+    try {
+      const desktop = await getDesktopRoot(false);
+      if (!desktop) throw new Error('未能取得桌面目录');
+      const parentLabel = desktop.name || '桌面';
+      const subName = defaultFolderName();
+      setStatus('正在「' + parentLabel + '」创建「' + subName + '」…');
+      let dirHandle;
+      try {
+        dirHandle = await desktop.getDirectoryHandle(subName, { create: true });
+      } catch (e) {
+        throw new Error('自动创建文件夹失败：' + ((e && e.message) || e) + '。可点「更换导出位置」重新授权桌面。');
+      }
+      const written = await writePngsToDir(dirHandle, list, used, 'image/png');
+      if (!written.length) throw new Error('未写入任何文件');
+      progressBar.classList.remove('show');
+      alertExport('已保存到桌面\\n' + parentLabel + '\\\\' + subName + '\\n共 ' + written.length + ' 张 PNG');
+    } catch (err) {
+      progressBar.classList.remove('show');
+      if (err && err.name === 'AbortError') {
+        setStatus('已取消选择，未导出');
+        return;
+      }
+      const detail = (err && (err.message || err.name)) ? String(err.message || err.name) : String(err);
+      console.error(err);
+      alertExport('导出失败：' + detail);
+    }
+  }
+
+  $('#btnExportAll').addEventListener('click', () => exportItems(items.slice()));
+  $('#btnExportSelected').addEventListener('click', () => exportItems(items.filter((i) => i.selected)));
+  const btnChangeExportDir = $('#btnChangeExportDir');
+  if (btnChangeExportDir) {
+    btnChangeExportDir.addEventListener('click', async () => {
+      try {
+        await idbClearDesktopHandle();
+        setStatus('已清除记忆，请重新点选桌面…');
+        const handle = await getDesktopRoot(true);
+        if (handle) {
+          alertExport('已更换导出位置为「' + (handle.name || '所选文件夹') + '」。下次导出会自动在此创建时间戳文件夹。');
+        }
+      } catch (err) {
+        if (err && err.name === 'AbortError') {
+          setStatus('已取消更换位置');
+          return;
+        }
+        alertExport('更换位置失败：' + ((err && err.message) || err));
+      }
+    });
+  }
+
+  // Inline edit: click empty page area to finish (not cards / sidebar / floatbar)
+  document.addEventListener('pointerdown', (e) => {
+    if (!editingId) return;
+    const t = e.target;
+    if (!t.closest) return;
+    if (t.closest('.card')) return; // same or other card — card handler switches focus
+    if (t.closest('.card-edit-ui')) return;
+    if (t.closest('.sidebar')) return;
+    if (t.closest('.page-drop-overlay')) return;
+    deactivateInlineEdit();
+  }, true);
+
+  // When global ratio / size changes, refresh thumbs (and active override ratio)
+  const _refresh = refreshAllPreviews;
+  refreshAllPreviews = function () {
+    if (editingId) {
+      const item = items.find((i) => i.id === editingId);
+      if (item && item.override && !item._lockRatio) {
+        const gr = getRatio(globalState);
+        item.override.rw = gr.w;
+        item.override.rh = gr.h;
+      }
+    }
+    _refresh();
+  };
+
+  // Init
+  applyUrlQueryDefaults();
+  renderChips();
+  renderThumbSizeChips();
+  thumbGrid.dataset.thumb = thumbSize;
+  updateSizePreview();
+  syncMpModeUI();
+
+  // Self-check formulas in console
+  (function selfCheck() {
+    const a = mpToSize(1, 1, 1);
+    console.assert(Math.abs(a.w * a.h - 1e6) < 2000, '1MP 1:1', a);
+    const b = mpToSize(1, 9, 16);
+    console.assert(Math.abs(b.w / b.h - 9 / 16) < 0.01, '1MP 9:16 ratio', b);
+    console.assert(Math.abs(b.w * b.h - 1e6) < 3000, '1MP 9:16 pixels', b);
+    const c = computeCropRect(1100, 1600, 9, 16, 1, 0.5, 0.5);
+    // 11:16 image to 9:16 → crop width = 1600*9/16=900, height=1600
+    console.assert(c.h === 1600 && c.w === 900, 'cover crop 11:16→9:16', c);
+    console.log('[自检通过] MP与cover裁剪公式正常', { a, b, c });
+  })();
+})();
+</script>
+</body>
+</html>
